@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Show Calendar</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      border-bottom: 1px solid #2d3748;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-icon { font-size: 2rem; }
+    .topbar-text h1 { font-size: 1.5rem; font-weight: 700; color: #f6ad55; letter-spacing: -0.5px; }
+    .topbar-text p { font-size: 0.8rem; color: #718096; margin-top: 2px; }
+    .topbar-badges { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .badge {
+      padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .badge-judged  { background: rgba(99,102,241,.25); color: #a5b4fc; border: 1px solid rgba(99,102,241,.4); }
+    .badge-cruise  { background: rgba(52,211,153,.2);  color: #6ee7b7; border: 1px solid rgba(52,211,153,.35); }
+    .badge-other   { background: rgba(251,191,36,.2);  color: #fcd34d; border: 1px solid rgba(251,191,36,.35); }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-judged { background: #818cf8; }
+    .dot-cruise { background: #34d399; }
+    .dot-other  { background: #fbbf24; }
+
+    /* ── Calendar wrapper ── */
+    .cal-wrap { max-width: 1200px; margin: 28px auto; padding: 0 16px 60px; }
+
+    /* ── Navigation ── */
+    .nav-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .nav-btn {
+      background: #1e2231; border: 1px solid #2d3748; color: #a0aec0;
+      width: 40px; height: 40px; border-radius: 10px; font-size: 1.2rem;
+      cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center;
+    }
+    .nav-btn:hover { background: #2d3748; color: #f6ad55; border-color: #f6ad55; }
+    .month-label { font-size: 1.6rem; font-weight: 700; color: #f7fafc; letter-spacing: -0.5px; }
+    .month-sub { font-size: 0.8rem; color: #718096; text-align: center; }
+    .today-btn {
+      background: #1e2231; border: 1px solid #2d3748; color: #a0aec0;
+      padding: 8px 16px; border-radius: 10px; font-size: 0.8rem; cursor: pointer;
+      transition: all .15s;
+    }
+    .today-btn:hover { background: #f6ad55; color: #1a1a2e; border-color: #f6ad55; font-weight: 600; }
+
+    /* ── Day-of-week header ── */
+    .dow-row {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+      margin-bottom: 4px;
+    }
+    .dow { text-align: center; font-size: 0.7rem; font-weight: 700; color: #4a5568;
+           text-transform: uppercase; padding: 6px 0; letter-spacing: .08em; }
+
+    /* ── Day grid ── */
+    .day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+    .day-cell {
+      background: #1a1d27; border: 1px solid #1e2231; border-radius: 10px;
+      min-height: 110px; padding: 6px; cursor: default;
+      transition: border-color .15s;
+      display: flex; flex-direction: column;
+    }
+    .day-cell:hover { border-color: #2d3748; }
+    .day-cell.other-month { background: #13151c; opacity: .5; }
+    .day-cell.today {
+      border-color: #f6ad55 !important;
+      background: linear-gradient(135deg, #1e2231 0%, #221a0e 100%);
+    }
+    .day-cell.has-events { cursor: pointer; }
+    .day-cell.has-events:hover { border-color: #4a5568; }
+
+    .day-num {
+      font-size: 0.8rem; font-weight: 600; color: #718096;
+      margin-bottom: 4px; line-height: 1;
+    }
+    .today .day-num {
+      color: #f6ad55; font-size: 0.9rem;
+    }
+    .day-num-today-pill {
+      display: inline-block; background: #f6ad55; color: #1a1a2e;
+      border-radius: 50%; width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+
+    .events-list { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+
+    .event-pill {
+      border-radius: 4px; padding: 2px 5px;
+      font-size: 0.65rem; font-weight: 500; line-height: 1.3;
+      cursor: pointer; transition: opacity .1s, transform .1s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .event-pill:hover { opacity: .85; transform: translateX(1px); }
+    .pill-judged { background: rgba(99,102,241,.3); color: #c7d2fe; border-left: 3px solid #818cf8; }
+    .pill-cruise { background: rgba(52,211,153,.2);  color: #a7f3d0; border-left: 3px solid #34d399; }
+    .pill-other  { background: rgba(251,191,36,.2);  color: #fde68a; border-left: 3px solid #fbbf24; }
+
+    .more-badge {
+      font-size: 0.6rem; color: #718096; padding: 1px 4px;
+      background: #2d3748; border-radius: 3px; text-align: center;
+      cursor: pointer; margin-top: 2px;
+    }
+    .more-badge:hover { color: #f6ad55; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.75); backdrop-filter: blur(4px);
+      z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #1a1d27; border: 1px solid #2d3748; border-radius: 16px;
+      width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 25px 60px rgba(0,0,0,.5);
+      animation: slideUp .2s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #2d3748;
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    }
+    .modal-date-badge {
+      background: #0f3460; border: 1px solid #1e4080; border-radius: 10px;
+      padding: 8px 14px; text-align: center; flex-shrink: 0;
+    }
+    .modal-date-month { font-size: 0.65rem; font-weight: 700; color: #63b3ed; text-transform: uppercase; letter-spacing: .1em; }
+    .modal-date-day   { font-size: 1.8rem; font-weight: 800; color: #f7fafc; line-height: 1; }
+    .modal-date-year  { font-size: 0.7rem; color: #4a5568; }
+    .modal-title-wrap { flex: 1; }
+    .modal-day-header { font-size: 1rem; font-weight: 700; color: #f7fafc; margin-bottom: 4px; }
+    .modal-day-count  { font-size: 0.75rem; color: #718096; }
+    .modal-close {
+      background: #2d3748; border: none; color: #a0aec0;
+      width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+      font-size: 1rem; flex-shrink: 0; transition: all .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-close:hover { background: #4a5568; color: #f7fafc; }
+
+    .modal-body { padding: 16px 24px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+    .event-card {
+      background: #13151c; border: 1px solid #2d3748; border-radius: 12px;
+      padding: 14px 16px; transition: border-color .15s;
+    }
+    .event-card:hover { border-color: #4a5568; }
+    .event-card-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .event-type-chip {
+      padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em; flex-shrink: 0; margin-top: 2px;
+    }
+    .chip-judged { background: rgba(99,102,241,.3); color: #a5b4fc; }
+    .chip-cruise { background: rgba(52,211,153,.2);  color: #6ee7b7; }
+    .chip-other  { background: rgba(251,191,36,.2);  color: #fcd34d; }
+    .event-card-name { font-size: 0.95rem; font-weight: 600; color: #f7fafc; line-height: 1.3; }
+
+    .event-meta { display: flex; flex-direction: column; gap: 5px; }
+    .meta-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #a0aec0; }
+    .meta-icon { font-size: 0.9rem; flex-shrink: 0; width: 16px; text-align: center; }
+    .meta-label { color: #718096; font-size: 0.7rem; min-width: 40px; }
+
+    /* ── Empty state ── */
+    .empty-month {
+      text-align: center; padding: 60px 20px; color: #4a5568;
+    }
+    .empty-month .big { font-size: 3rem; margin-bottom: 12px; }
+    .empty-month p { font-size: 0.9rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .day-cell { min-height: 70px; padding: 4px; }
+      .event-pill { font-size: 0.58rem; }
+      .topbar-badges { display: none; }
+      .month-label { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-icon">🏎️</div>
+  <div class="topbar-text">
+    <h1>Car Show Calendar</h1>
+    <p>Events sourced from CarShowz.com · March 2026 – October 2026</p>
+  </div>
+  <div class="topbar-badges">
+    <div class="badge badge-judged"><div class="badge-dot dot-judged"></div>Judged</div>
+    <div class="badge badge-cruise"><div class="badge-dot dot-cruise"></div>Cruise</div>
+    <div class="badge badge-other"><div class="badge-dot dot-other"></div>Other</div>
+  </div>
+</div>
+
+<div class="cal-wrap">
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn">&#8249;</button>
+    <div style="text-align:center">
+      <div class="month-label" id="monthLabel"></div>
+      <div class="month-sub" id="monthSub"></div>
+    </div>
+    <button class="nav-btn" id="nextBtn">&#8250;</button>
+  </div>
+  <div style="display:flex;justify-content:center;margin-bottom:16px;">
+    <button class="today-btn" id="todayBtn">Today</button>
+  </div>
+
+  <div class="dow-row">
+    <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div>
+    <div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div>
+    <div class="dow">Sat</div>
+  </div>
+  <div class="day-grid" id="dayGrid"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-date-badge">
+        <div class="modal-date-month" id="mMonth"></div>
+        <div class="modal-date-day"   id="mDay"></div>
+        <div class="modal-date-year"  id="mYear"></div>
+      </div>
+      <div class="modal-title-wrap">
+        <div class="modal-day-header" id="mDayLabel"></div>
+        <div class="modal-day-count"  id="mCount"></div>
+      </div>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  EVENT DATA  (scraped from carshowz.com)
+// ─────────────────────────────────────────────
+const EVENTS = [
+  {name:"Cars-n-Coffee Pittsburgh South",date:"2026-04-11",time:"9:00 AM",type:"Other",city:"Houston",state:"Pennsylvania"},
+  {name:"Delaware Water Gap Classic Car Club Annual Show",date:"2026-06-27",time:"9:00 AM",type:"Judged",city:"Delaware Water Gap",state:"Pennsylvania"},
+  {name:"30th Anniversary ALLTOYOTAFEST",date:"2026-05-30",time:"9:00 AM",type:"Other",city:"Long Beach",state:"California"},
+  {name:"Kenneth Snider Memorial Car Cruise",date:"2026-07-12",time:"1:00 PM",type:"Cruise",city:"Erie",state:"Pennsylvania"},
+  {name:"That's MY Car & Bike Show",date:"2026-08-22",time:"1:00 PM",type:"Judged",city:"Dover",state:"Delaware"},
+  {name:"Bristol Day Car Show",date:"2026-10-17",time:"9:00 AM",type:"Other",city:"Bristol",state:"Pennsylvania"},
+  {name:"Bristol Day Car Show",date:"2026-10-18",time:"9:00 AM",type:"Other",city:"Bristol",state:"Pennsylvania"},
+  {name:"Mahogany & Steel Car and Boat Show",date:"2026-05-30",time:"9:00 AM",type:"Other",city:"Bristol",state:"Pennsylvania"},
+  {name:"Das Awkscht Fescht Car Show and Swap Meet",date:"2026-07-31",time:"8:00 AM",type:"Other",city:"Macungie",state:"Pennsylvania"},
+  {name:"Monthly Muscle Car Show",date:"2026-04-11",time:"9:00 AM",type:"Cruise",city:"The Colony",state:"Texas"},
+  {name:"Cars on K",date:"2026-04-04",time:"9:00 AM",type:"Judged",city:"Tulare",state:"California"},
+  {name:"Das Awkscht Fescht",date:"2026-07-31",time:"8:00 AM",type:"Other",city:"Macungie",state:"Pennsylvania"},
+  {name:"Wheels in Motion",date:"2026-05-30",time:"9:00 AM",type:"Other",city:"Saint Peters",state:"Missouri"},
+  {name:"51st Annual Sully Antique Car Show",date:"2026-06-21",time:"9:00 AM",type:"Judged",city:"Chantilly",state:"Virginia"},
+  {name:"Annual Spring Fling",date:"2026-04-26",time:"9:00 AM",type:"Judged",city:"Leonardtown",state:"Maryland"},
+  {name:"15th Annual AOH Car Show",date:"2026-09-12",time:"8:00 AM",type:"Other",city:"Virginia Beach",state:"Virginia"},
+  {name:"5th Annual Rockin Rods and Custom Rides Car Show",date:"2026-07-12",time:"10:00 AM",type:"Judged",city:"Milliken",state:"Colorado"},
+  {name:"The Hardin County Bank Cruz'n For A Cure",date:"2026-04-25",time:"7:30 AM",type:"Judged",city:"Savannah",state:"Tennessee"},
+  {name:"PlayLoud Car and Truck Show",date:"2026-08-01",time:"10:00 AM",type:"Judged",city:"Jennings",state:"Florida"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Tulsa",state:"Oklahoma"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Ruskin",state:"Florida"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Peoria",state:"Arizona"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"New Braunfels",state:"Texas"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Runnemede",state:"New Jersey"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Lake Mary",state:"Florida"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Smyrna",state:"Tennessee"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Caledonia",state:"Wisconsin"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Olathe",state:"Kansas"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Houston",state:"Texas"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Dearborn",state:"Michigan"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Concord",state:"North Carolina"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"Crete",state:"Illinois"},
+  {name:"Caffeine and Chrome",date:"2026-03-28",time:"9:00 AM",type:"Other",city:"O'Fallon",state:"Illinois"},
+  {name:"Manheim Sertoma 4th Annual Car Show",date:"2026-09-12",time:"10:00 AM",type:"Judged",city:"Manheim",state:"Pennsylvania"},
+  {name:"Finish the Race Spring Car & Motorcycle Show 2026",date:"2026-04-12",time:"1:00 PM",type:"Judged",city:"Sterling",state:"Virginia"},
+  {name:"15th Annual Park Ridge NJ Car Show",date:"2026-05-02",time:"9:00 AM",type:"Judged",city:"Park Ridge",state:"New Jersey"},
+  {name:"Kidde Fenwal American Cancer Society Car Show",date:"2026-09-12",time:"9:00 AM",type:"Judged",city:"Ashland",state:"Massachusetts"},
+  {name:"Car Show at ChalkPalooza",date:"2026-06-06",time:"10:00 AM",type:"Other",city:"Reading",state:"Pennsylvania"},
+  {name:"72nd Annual Long Beach Model T Club Swap Meet",date:"2026-07-18",time:"7:00 AM",type:"Other",city:"Long Beach",state:"California"},
+  {name:"Grace Car Show",date:"2026-03-14",time:"9:00 AM",type:"Judged",city:"The Woodlands",state:"Texas"},
+  {name:"Coffee & Classics",date:"2026-04-19",time:"9:00 AM",type:"Cruise",city:"New Market",state:"Maryland"},
+  {name:"73rd Annual Spring Meet",date:"2026-05-03",time:"8:30 AM",type:"Judged",city:"Denville",state:"New Jersey"},
+  {name:"Williamsburg British and Import Car Show",date:"2026-05-02",time:"10:00 AM",type:"Judged",city:"Williamsburg",state:"Virginia"},
+  {name:"20th Annual Car Show",date:"2026-08-23",time:"4:30 PM",type:"Other",city:"Beaverton",state:"Oregon"},
+  {name:"18th Annual Classic Rock Cruise In",date:"2026-06-20",time:"10:00 AM",type:"Judged",city:"Castle Rock",state:"Colorado"},
+  {name:"Bones Bumpers and Bagels",date:"2026-06-07",time:"9:00 AM",type:"Other",city:"Morristown",state:"New Jersey"},
+  {name:"Monthly Muscle Car Show",date:"2026-03-14",time:"9:00 AM",type:"Cruise",city:"The Colony",state:"Texas"},
+  {name:"46th Annual Chester County Antique Car Club Show",date:"2026-05-23",time:"10:00 AM",type:"Judged",city:"Downingtown",state:"Pennsylvania"},
+  {name:"Pacific Coast Dream Machines",date:"2026-04-26",time:"10:00 AM",type:"Other",city:"Half Moon Bay",state:"California"},
+  {name:"Hot Rods & Harleys",date:"2026-04-09",time:"9:00 AM",type:"Judged",city:"Laughlin",state:"Nevada"},
+  {name:"Tri-State Corvettes at Peddler's Village",date:"2026-10-04",time:"7:30 AM",type:"Judged",city:"Lahaska",state:"Pennsylvania"},
+  {name:"King of Kings Lutheran Church Annual Car Show",date:"2026-08-29",time:"10:00 AM",type:"Judged",city:"Middletown",state:"New Jersey"},
+  {name:"Bow Rotary 15th Annual Car Show",date:"2026-05-16",time:"6:00 AM",type:"Other",city:"Bow",state:"New Hampshire"},
+  {name:"Annual Car Show at Jefferson Memorial Cemetery",date:"2026-08-09",time:"4:00 AM",type:"Judged",city:"Pittsburgh",state:"Pennsylvania"},
+  {name:"East Coast Drifters Spring Open Car Show",date:"2026-05-03",time:"8:00 AM",type:"Judged",city:"Mechanicsville",state:"Maryland"},
+  {name:"Reese Fire Company 22nd Annual Car Show",date:"2026-08-15",time:"9:00 AM",type:"Judged",city:"Westminster",state:"Maryland"},
+  {name:"CT Seaport Car Club's 10th Annual Antique and Classic Show",date:"2026-06-07",time:"9:00 AM",type:"Judged",city:"Fairfield",state:"Connecticut"},
+  {name:"WHEELS AT THE GROVE",date:"2026-05-10",time:"9:00 AM",type:"Judged",city:"Orefield",state:"Pennsylvania"},
+  {name:"12th Annual Fall Car Showdown",date:"2026-09-19",time:"9:00 AM",type:"Other",city:"Mount Vernon",state:"Washington"},
+  {name:"Belchertown Lions Club 3rd Annual Car Show",date:"2026-08-08",time:"9:00 AM",type:"Judged",city:"Belchertown",state:"Massachusetts"},
+  {name:"Classic Car Show at Horseshoe Bay Farms",date:"2026-07-05",time:"10:00 AM",type:"Judged",city:"Egg Harbor",state:"Wisconsin"},
+  {name:"Annual Mopars Unlimited Car Show",date:"2026-03-07",time:"8:00 AM",type:"Judged",city:"Phoenix",state:"Arizona"},
+  {name:"Pumpkins & Pistons Extravaganza",date:"2026-09-12",time:"11:00 AM",type:"Judged",city:"Fountain City",state:"Wisconsin"},
+  {name:"The Sentimental Cruisers Car Club Show – Ocean Gate",date:"2026-10-17",time:"9:00 AM",type:"Other",city:"Ocean Gate",state:"New Jersey"},
+  {name:"The Sentimental Cruisers Car Club Show – Island Heights",date:"2026-08-08",time:"9:00 AM",type:"Other",city:"Island Heights",state:"New Jersey"},
+  {name:"The Sentimental Cruisers Car Club Show – Lanoka Harbor",date:"2026-05-24",time:"9:00 AM",type:"Other",city:"Lanoka Harbor",state:"New Jersey"},
+  {name:"9th Annual Benefit Car & Bike Show",date:"2026-05-23",time:"4:30 AM",type:"Judged",city:"York",state:"Pennsylvania"},
+  {name:"Delaware Valley Road Runners Halloween Car Show",date:"2026-10-17",time:"4:15 PM",type:"Judged",city:"Levittown",state:"Pennsylvania"},
+  {name:"Delaware Valley Road Runners Labor Day Car Show",date:"2026-09-07",time:"4:10 AM",type:"Judged",city:"Levittown",state:"Pennsylvania"},
+  {name:"Delaware Valley Road Runners Cruise Night",date:"2026-04-21",time:"3:30 PM",type:"Cruise",city:"Levittown",state:"Pennsylvania"},
+  {name:"9th Annual LMTE Boosters Car Show",date:"2026-05-02",time:"8:00 AM",type:"Judged",city:"Herndon",state:"Pennsylvania"},
+  {name:"Vicari Auction Spring Sale 2026",date:"2026-05-01",time:"8:30 AM",type:"Other",city:"Biloxi",state:"Mississippi"},
+  {name:"33rd Annual Open Car Show",date:"2026-04-18",time:"9:00 AM",type:"Judged",city:"Boerne",state:"Texas"},
+  {name:"Nevada MO VFW POST 2175 Car/Truck & Bike Show",date:"2026-10-03",time:"9:00 AM",type:"Judged",city:"Nevada",state:"Missouri"},
+  {name:"Camp Plymouth Military Vehicle Show & Swap Meet",date:"2026-04-15",time:"8:00 AM",type:"Other",city:"Plymouth",state:"California"},
+  {name:"Cruzin to the Hills",date:"2026-04-11",time:"9:00 AM",type:"Judged",city:"Goodyear",state:"Arizona"},
+  {name:"Gears for Growth Car Show – A Fundraising Event",date:"2026-04-25",time:"10:30 AM",type:"Other",city:"Newark",state:"Ohio"},
+  {name:"WAAAM Traffic Jam",date:"2026-07-11",time:"8:00 AM",type:"Judged",city:"Hood River",state:"Oregon"},
+  {name:"9th Annual Raise the Hood 4 Women Car Show",date:"2026-08-29",time:"9:00 AM",type:"Judged",city:"King George",state:"Virginia"},
+  {name:"ALL PORSCHE GRAND DISPLAY – Carefree AZ",date:"2026-03-01",time:"9:00 AM",type:"Judged",city:"Carefree",state:"Arizona"},
+  {name:"Angel's Wing Inc 5th Annual Domestic Violence Auto Show",date:"2026-10-03",time:"6:00 AM",type:"Judged",city:"Waldorf",state:"Maryland"},
+  {name:"52nd NSRA Street Rod Nationals East",date:"2026-06-05",time:"8:00 AM",type:"Judged",city:"York",state:"Pennsylvania"},
+  {name:"Envy Frenzy",date:"2026-08-01",time:"8:00 AM",type:"Other",city:"Kingston",state:"New York"},
+  {name:"5th Annual Scholarship Fund Auto Extravaganza",date:"2026-05-30",time:"9:00 AM",type:"Other",city:"Durham",state:"North Carolina"},
+  {name:"35th Annual Slamfest Truck & Car Show",date:"2026-10-10",time:"8:00 AM",type:"Judged",city:"Tampa",state:"Florida"},
+  {name:"Leesport Swap Meet and Car Corral",date:"2026-03-01",time:"7:02 AM",type:"Other",city:"Leesport",state:"Pennsylvania"},
+  {name:"Import Face-Off – Pacific Raceways",date:"2026-04-26",time:"8:00 AM",type:"Other",city:"Kent",state:"Washington"},
+  {name:"Import Face-Off – National Trail Raceway",date:"2026-04-19",time:"8:00 AM",type:"Other",city:"Hebron",state:"Ohio"},
+  {name:"Import Face-Off – Illinois",date:"2026-04-12",time:"8:00 AM",type:"Other",city:"Madison",state:"Illinois"},
+  {name:"4th Annual Maryland Mayhem Car & Truck Show",date:"2026-05-23",time:"9:00 AM",type:"Judged",city:"Westminster",state:"Maryland"},
+  {name:"Renegade Monster Trucks – Crownsville MD",date:"2026-05-01",time:"2:00 PM",type:"Other",city:"Crownsville",state:"Maryland"},
+  {name:"Import Face-Off – Burt Brothers Motorpark",date:"2026-04-04",time:"8:00 AM",type:"Other",city:"Grantsville",state:"Utah"},
+  {name:"Import Face-Off – Rockingham Dragway",date:"2026-03-29",time:"8:00 AM",type:"Other",city:"Rockingham",state:"North Carolina"},
+  {name:"Import Face-Off – Suika Circuit",date:"2026-03-22",time:"8:00 AM",type:"Other",city:"Albuquerque",state:"New Mexico"},
+  {name:"Import Face-Off – Thunder Valley Raceway",date:"2026-03-15",time:"8:00 AM",type:"Other",city:"Noble",state:"Oklahoma"},
+  {name:"Import Face-Off – Texas Motorplex",date:"2026-03-08",time:"8:00 AM",type:"Other",city:"Ennis",state:"Texas"},
+  {name:"NOPI Nationals – Maryland International Dragway",date:"2026-08-21",time:"8:00 AM",type:"Other",city:"Mechanicsville",state:"Maryland"},
+  {name:"NOPI Nationals – South Florida Fairgrounds",date:"2026-06-27",time:"8:00 AM",type:"Other",city:"West Palm Beach",state:"Florida"},
+  {name:"NOPI Nationals – South Georgia Motorsports Park",date:"2026-05-15",time:"8:00 AM",type:"Other",city:"Adel",state:"Georgia"},
+  {name:"NOPI Nationals – Virginia Motorsports Park",date:"2026-04-25",time:"8:00 AM",type:"Other",city:"Petersburg",state:"Virginia"},
+  {name:"Spirits of '53 Annual Judged Corvette Show",date:"2026-05-17",time:"9:00 AM",type:"Judged",city:"Milltown",state:"New Jersey"},
+  {name:"Return to Renton Benefit Cruise-In and Car Show",date:"2026-07-12",time:"10:00 AM",type:"Other",city:"Renton",state:"Washington"},
+  {name:"Shelton Car Showoff & Cruise",date:"2026-05-31",time:"8:00 AM",type:"Judged",city:"Shelton",state:"Washington"},
+  {name:"27th Camaro Nationals",date:"2026-07-17",time:"8:00 AM",type:"Judged",city:"Morgantown",state:"Pennsylvania"},
+  {name:"All American Corvette Club 26th Annual Car Show",date:"2026-06-14",time:"8:00 AM",type:"Judged",city:"Paramus",state:"New Jersey"},
+  {name:"12th Annual Califon Classic Car Show",date:"2026-09-19",time:"5:00 AM",type:"Judged",city:"Califon",state:"New Jersey"},
+  {name:"Califon's All Mopar Show",date:"2026-06-06",time:"5:00 AM",type:"Judged",city:"Califon",state:"New Jersey"},
+  {name:"Fall Carlisle Collector Car Auction",date:"2026-10-01",time:"10:00 AM",type:"Other",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Fall Carlisle",date:"2026-09-30",time:"7:00 AM",type:"Other",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Corvettes at Carlisle",date:"2026-08-27",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Carlisle Truck Nationals",date:"2026-08-07",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Carlisle Chrysler Nationals",date:"2026-07-10",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Carlisle GM Nationals",date:"2026-06-19",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Carlisle Ford Nationals",date:"2026-06-05",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Carlisle Import & Performance Nationals",date:"2026-05-15",time:"7:00 AM",type:"Judged",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Spring Carlisle Collector Car Auction",date:"2026-04-23",time:"10:00 AM",type:"Other",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Spring Carlisle",date:"2026-04-22",time:"7:00 AM",type:"Other",city:"Carlisle",state:"Pennsylvania"},
+  {name:"Mid Atlantic Indoor Nationals",date:"2026-03-21",time:"9:00 AM",type:"Judged",city:"Oaks",state:"Pennsylvania"},
+  {name:"Clean Culture MD",date:"2026-04-04",time:"11:00 AM",type:"Judged",city:"Aberdeen",state:"Maryland"},
+  {name:"Attitude Check 14",date:"2026-08-10",time:"5:00 PM",type:"Judged",city:"Woodford",state:"Virginia"},
+  {name:"A Day in May 2026",date:"2026-05-16",time:"11:00 AM",type:"Judged",city:"Freedom",state:"Pennsylvania"},
+  {name:"4th Annual Old School Hot Rods Car Show",date:"2026-03-07",time:"11:00 AM",type:"Other",city:"New Port Richey",state:"Florida"},
+  {name:"Tacos and Tailgates Truck Show",date:"2026-07-11",time:"12:00 PM",type:"Judged",city:"Perryville",state:"Maryland"},
+];
+
+// ─────────────────────────────────────────────
+//  Build lookup: dateKey -> [events]
+// ─────────────────────────────────────────────
+const eventsByDate = {};
+EVENTS.forEach(ev => {
+  if (!eventsByDate[ev.date]) eventsByDate[ev.date] = [];
+  eventsByDate[ev.date].push(ev);
+});
+
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+const today = new Date();
+let cur = { year: today.getFullYear(), month: today.getMonth() };
+
+const MONTHS = ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"];
+const DAYS_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+// ─────────────────────────────────────────────
+//  Render calendar
+// ─────────────────────────────────────────────
+function dateKey(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function render() {
+  const { year, month } = cur;
+  document.getElementById('monthLabel').textContent = `${MONTHS[month]} ${year}`;
+
+  // Count events this month
+  let monthCount = 0;
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const k = dateKey(year, month, d);
+    if (eventsByDate[k]) monthCount += eventsByDate[k].length;
+  }
+  document.getElementById('monthSub').textContent =
+    monthCount > 0 ? `${monthCount} event${monthCount !== 1 ? 's' : ''} this month` : 'No events this month';
+
+  const grid = document.getElementById('dayGrid');
+  grid.innerHTML = '';
+
+  const daysInPrev = new Date(year, month, 0).getDate();
+
+  // Leading days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    grid.appendChild(makeCell(year, month - 1, daysInPrev - i, true));
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    grid.appendChild(makeCell(year, month, d, false));
+  }
+  // Trailing days
+  const total = firstDay + daysInMonth;
+  const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let i = 1; i <= trailing; i++) {
+    grid.appendChild(makeCell(year, month + 1, i, true));
+  }
+}
+
+function makeCell(year, month, day, otherMonth) {
+  // normalise month for date key
+  const d = new Date(year, month, day);
+  const y = d.getFullYear(), m = d.getMonth(), dd = d.getDate();
+  const key = dateKey(y, m, dd);
+  const events = eventsByDate[key] || [];
+
+  const isToday = dd === today.getDate() && m === today.getMonth() && y === today.getFullYear();
+
+  const cell = document.createElement('div');
+  cell.className = 'day-cell' +
+    (otherMonth  ? ' other-month' : '') +
+    (isToday     ? ' today'       : '') +
+    (events.length > 0 && !otherMonth ? ' has-events' : '');
+
+  // Day number
+  const numEl = document.createElement('div');
+  numEl.className = 'day-num';
+  if (isToday) {
+    const pill = document.createElement('div');
+    pill.className = 'day-num-today-pill';
+    pill.textContent = dd;
+    numEl.appendChild(pill);
+  } else {
+    numEl.textContent = dd;
+  }
+  cell.appendChild(numEl);
+
+  if (!otherMonth && events.length > 0) {
+    const list = document.createElement('div');
+    list.className = 'events-list';
+
+    const MAX_SHOW = 3;
+    events.slice(0, MAX_SHOW).forEach(ev => {
+      const pill = document.createElement('div');
+      pill.className = `event-pill pill-${ev.type.toLowerCase()}`;
+      pill.textContent = ev.name;
+      pill.title = `${ev.name} — ${ev.time} — ${ev.city}, ${ev.state}`;
+      pill.addEventListener('click', e => {
+        e.stopPropagation();
+        openModal(key, events);
+      });
+      list.appendChild(pill);
+    });
+
+    if (events.length > MAX_SHOW) {
+      const more = document.createElement('div');
+      more.className = 'more-badge';
+      more.textContent = `+${events.length - MAX_SHOW} more`;
+      more.addEventListener('click', e => {
+        e.stopPropagation();
+        openModal(key, events);
+      });
+      list.appendChild(more);
+    }
+
+    cell.appendChild(list);
+    cell.addEventListener('click', () => openModal(key, events));
+  }
+
+  return cell;
+}
+
+// ─────────────────────────────────────────────
+//  Modal
+// ─────────────────────────────────────────────
+function openModal(key, events) {
+  const d = new Date(key + 'T00:00:00');
+  document.getElementById('mMonth').textContent   = MONTHS[d.getMonth()].toUpperCase();
+  document.getElementById('mDay').textContent     = d.getDate();
+  document.getElementById('mYear').textContent    = d.getFullYear();
+  document.getElementById('mDayLabel').textContent = DAYS_FULL[d.getDay()] + ', ' +
+    MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  document.getElementById('mCount').textContent   =
+    `${events.length} event${events.length !== 1 ? 's' : ''}`;
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = '';
+
+  events.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'event-card';
+    card.innerHTML = `
+      <div class="event-card-header">
+        <span class="event-type-chip chip-${ev.type.toLowerCase()}">${ev.type}</span>
+        <div class="event-card-name">${ev.name}</div>
+      </div>
+      <div class="event-meta">
+        <div class="meta-row">
+          <span class="meta-icon">🕐</span>
+          <span class="meta-label">Time</span>
+          <span>${ev.time}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-icon">📍</span>
+          <span class="meta-label">Location</span>
+          <span>${ev.city}, ${ev.state}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-icon">📅</span>
+          <span class="meta-label">Date</span>
+          <span>${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}</span>
+        </div>
+      </div>
+    `;
+    body.appendChild(card);
+  });
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────
+//  Event listeners
+// ─────────────────────────────────────────────
+document.getElementById('prevBtn').addEventListener('click', () => {
+  cur.month--;
+  if (cur.month < 0) { cur.month = 11; cur.year--; }
+  render();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  cur.month++;
+  if (cur.month > 11) { cur.month = 0; cur.year++; }
+  render();
+});
+document.getElementById('todayBtn').addEventListener('click', () => {
+  cur = { year: today.getFullYear(), month: today.getMonth() };
+  render();
+});
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'ArrowLeft')  document.getElementById('prevBtn').click();
+  if (e.key === 'ArrowRight') document.getElementById('nextBtn').click();
+});
+
+// ─────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
